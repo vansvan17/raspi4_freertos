@@ -170,7 +170,7 @@ iii) the device tree overlay file `raspi4-rpmsg.dtso` too!
 
 (1) Copy the obtained binary to your SD card
 ```
-$ sudo ./uart.elf /path/to/sd_boot_partition/
+$ sudo cp ./uart.elf /path/to/sd_boot_partition/
 ```
 
 (2) Get the u-boot command on your Raspberry Pi 4B board  
