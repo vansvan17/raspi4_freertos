@@ -178,14 +178,19 @@ Insert your SD card into your board, then power it on.
 
 (3) Launch the FreeRTOS sample program on the u-boot prompt
 ```
-setenv autostart yes
-dcache off
-ext4load mmc 0:2 0x28000000 /path/to/uart.elf
-dcache flush
-bootelf 0x28000000
+U-Boot> setenv autostart yes
+U-Boot> dcache off
+U-Boot> ext4load mmc 0:2 0x28000000 /path/to/uart.elf
+282512 bytes read in 42 ms (6.4 MiB/s)
+U-Boot> dcache flush
+U-Boot> bootelf 0x28000000
+## Starting application at 0x20001788 ...
+## Application terminated, rc = 0x0
 ```
 
 `mmc 0:2` in the `ext4load` command execution will vary depending on your SD card configuration. Don't forget to use the `fatload` command if you copied the sample program binary to a FAT partition.
+
+If you cannot see any output (meaning `## Starting ..., rc = 0x0`) just after the execution of the `bootelf` command, the sample program might fail in the start-up code running on top of the core#0.
 
 You will see output by the UART sample program.
 ```
@@ -252,12 +257,15 @@ Add `maxcpus=3` to `cmdline.txt`. This enables Linux to use only CPU cores #0-2.
 #### Launching FreeRTOS
 Same as 4-(3). Execute the following commands on the u-boot prompt.
 ```
-setenv autostart yes
-dcache off
-ext4load mmc 0:2 0x30000000 /path/to/uart.elf
-dcache flush
-bootelf 0x30000000
-dcache on
+U-Boot> setenv autostart yes
+U-Boot> dcache off
+U-Boot> ext4load mmc 0:2 0x30000000 /path/to/uart.elf
+282512 bytes read in 42 ms (6.4 MiB/s)
+U-Boot> dcache flush
+U-Boot> bootelf 0x30000000
+## Starting application at 0x20001788 ...
+## Application terminated, rc = 0x0
+U-Boot> dcache on
 ```
 But you will see only a message
 ```
