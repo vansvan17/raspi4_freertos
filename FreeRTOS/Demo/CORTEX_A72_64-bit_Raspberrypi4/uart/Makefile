@@ -27,11 +27,8 @@ OBJS +=build/FreeRTOS_asm_vector.o
 OBJS +=build/FreeRTOS_tick_config.o
 OBJS +=build/interrupt.o
 OBJS +=build/main.o
-OBJS +=build/mmu_cfg.o
+OBJS +=build/runtime.o
 OBJS +=build/uart.o
-
-# From ../mmu
-OBJS +=build/mmu.o
 
 # From ../cache
 OBJS +=build/cache.o
@@ -51,7 +48,7 @@ BUILDDIR =./build
 
 .PHONY: all clean
 
-all : builddir $(APP_NAME).elf
+all : builddir $(APP_NAME).elf kernel8.img
 
 builddir : | $(BUILDDIR)
 
@@ -64,7 +61,10 @@ clean :
 	rm -f *.map
 
 $(APP_NAME).elf : src/raspberrypi4.ld $(OBJS)
-	$(CROSS)gcc -Wl,-Map=$(APP_NAME).map -Wl,--build-id=none -std=gnu99 -T src/raspberrypi4.ld -o $@ -ffreestanding --specs=rdimon.specs $(OBJS)
+	$(CROSS)gcc -Wl,-Map=$(APP_NAME).map -Wl,--build-id=none -std=gnu99 -T src/raspberrypi4.ld -o $@ -ffreestanding -nostdlib $(OBJS) -lgcc
+
+kernel8.img : $(APP_NAME).elf
+	$(CROSS)objcopy -O binary $< $@
 
 build/%.o : src/%.S
 	$(CROSS)as $(ASMFLAGS) -c -o $@ $<
@@ -89,4 +89,3 @@ build/%.o : ../../../Source/portable/GCC/ARM_CA72_64_BIT/%.S
 
 build/%.o : ../../../Source/portable/MemMang/%.c
 	$(CROSS)gcc $(CFLAGS)  -c -o $@ $<
-

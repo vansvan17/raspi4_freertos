@@ -1,6 +1,6 @@
 ENTRY(_boot)
 
-CODE_BASE   = 0x20000000;
+CODE_BASE   = 0x00080000;
 CODE_SIZE   = 0x00200000;
 DATA_BASE   = CODE_BASE + CODE_SIZE;
 DATA_SIZE   = 0x00400000;
@@ -16,7 +16,7 @@ MEMORY {
  
 SECTIONS
 {
-    /* Starts at 0x20000000 (assuming ends at 0x208FFFFF, 9MB). */
+    /* Raspberry Pi firmware loads a 64-bit kernel at 0x80000. */
     .text :
     {
         __start = .;

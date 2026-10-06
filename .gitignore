@@ -4,3 +4,6 @@ FreeRTOS/Demo/CORTEX_A72_64-bit_Raspberrypi4/*/project/Release
 FreeRTOS/Demo/CORTEX_A72_64-bit_Raspberrypi4/*/build
 
 FreeRTOS/Demo/CORTEX_A72_64-bit_Raspberrypi4/rpsmg_ping
+FreeRTOS/Demo/CORTEX_A72_64-bit_Raspberrypi4/uart/*.elf
+FreeRTOS/Demo/CORTEX_A72_64-bit_Raspberrypi4/uart/*.img
+FreeRTOS/Demo/CORTEX_A72_64-bit_Raspberrypi4/uart/*.map

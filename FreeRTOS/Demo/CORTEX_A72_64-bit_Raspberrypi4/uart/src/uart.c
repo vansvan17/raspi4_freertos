@@ -133,7 +133,7 @@ void uart_init(void)
     wait_linux();
 #endif
 
-    isr_register(IRQ_VC_UART, UART_PRIORITY, (0x1U << 0x3U), uart_isr);
+    isr_register(IRQ_VC_UART, UART_PRIORITY, 0x1U, uart_isr);
     return;
 }
 /*-----------------------------------------------------------*/

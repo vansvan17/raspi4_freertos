@@ -1,5 +1,26 @@
 # raspi4_freertos
 
+## Optional limited-preemption scheduler
+
+This branch adds opt-in preemption-threshold scheduling to FreeRTOS. Enable it
+with `configUSE_PREEMPTION_THRESHOLDS=1`, then assign a threshold to a task:
+
+```c
+TaskHandle_t controller;
+
+xTaskCreate(controller_task, "controller", 512, NULL, 3, &controller);
+vTaskPreemptionThresholdSet(controller, 4);
+```
+
+While the controller is running, tasks at priorities 4 and below cannot
+preempt it; a task at priority 5 or above still can. Blocking, yielding, and
+ordinary highest-priority task selection continue to work normally. A task's
+threshold defaults to its priority, preserving the fully preemptive behaviour
+unless an application explicitly raises the threshold.
+
+The Raspberry Pi 4 UART demo configures the controller at priority 3 with a
+threshold of 4, while the priority-5 watchdog remains able to preempt it.
+
 This repository includes a FreeRTOS UART sample application which can run on Raspberry Pi 4B.
 
 ## 1. Overview
@@ -344,4 +365,3 @@ GPL-2.0 derived from Linux(https://github.com/raspberrypi/linux).
 ```
 ./dts/
 ```
-

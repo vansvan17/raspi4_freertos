@@ -63,7 +63,7 @@ void vConfigureTickInterrupt( void )
     enable_cntv();
 
     /* register the time isr */
-    isr_register(IRQ_VTIMER, 0xA0U, (0x1U << 0x3U), FreeRTOS_Tick_Handler);
+    isr_register(IRQ_VTIMER, 0xA0U, 0x1U, FreeRTOS_Tick_Handler);
 
     return;
 }
@@ -110,4 +110,3 @@ void vApplicationIRQHandler( uint32_t ulICCIAR )
 
     return;
 }
-

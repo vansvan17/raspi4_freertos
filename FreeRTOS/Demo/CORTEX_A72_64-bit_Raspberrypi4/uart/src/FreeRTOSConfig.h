@@ -29,6 +29,7 @@
 #define FREERTOS_CONFIG_H
 
 #define configUSE_PREEMPTION					1
+#define configUSE_PREEMPTION_THRESHOLDS			1
 #define configUSE_IDLE_HOOK						1
 #define configUSE_TICK_HOOK						1
 #define configTICK_RATE_HZ	                    ( ( TickType_t ) 1000 )
@@ -49,6 +50,7 @@
 /* Set the following definitions to 1 to include the API function, or zero
 to exclude the API function. */
 #define INCLUDE_vTaskDelay						1
+#define INCLUDE_vTaskDelayUntil					1
 
 #define INCLUDE_xSemaphoreGetMutexHolder		1
 
@@ -63,4 +65,3 @@ void vClearTickInterrupt( void );
 #define configMAX_API_CALL_INTERRUPT_PRIORITY	(14)
 
 #endif /* FREERTOS_CONFIG_H */
-
