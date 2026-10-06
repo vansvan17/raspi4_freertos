@@ -1017,6 +1017,23 @@ void vTaskGetInfo( TaskHandle_t xTask, TaskStatus_t *pxTaskStatus, BaseType_t xG
  */
 void vTaskPrioritySet( TaskHandle_t xTask, UBaseType_t uxNewPriority ) PRIVILEGED_FUNCTION;
 
+#if ( configUSE_PREEMPTION_THRESHOLDS == 1 )
+
+	/**
+	 * Set the preemption threshold of a task.
+	 *
+	 * A ready task can preempt the running task only when its priority is
+	 * strictly greater than the running task's preemption threshold. Passing
+	 * NULL changes the calling task. Thresholds below the task priority are
+	 * clamped to the task priority.
+	 */
+	void vTaskPreemptionThresholdSet( TaskHandle_t xTask, UBaseType_t uxNewThreshold ) PRIVILEGED_FUNCTION;
+
+	/** Return a task's configured preemption threshold. */
+	UBaseType_t uxTaskPreemptionThresholdGet( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
+
+#endif /* configUSE_PREEMPTION_THRESHOLDS */
+
 /**
  * task. h
  * <pre>void vTaskSuspend( TaskHandle_t xTaskToSuspend );</pre>

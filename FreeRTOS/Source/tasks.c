@@ -64,6 +64,17 @@ functions but without including stdio.h here. */
 	#define taskYIELD_IF_USING_PREEMPTION() portYIELD_WITHIN_API()
 #endif
 
+#if ( configUSE_PREEMPTION_THRESHOLDS == 1 )
+	#define taskCURRENT_PREEMPTION_LEVEL() \
+		( ( pxCurrentTCB->uxPreemptionThreshold > pxCurrentTCB->uxPriority ) ? \
+		  pxCurrentTCB->uxPreemptionThreshold : pxCurrentTCB->uxPriority )
+	#define taskCAN_PREEMPT_CURRENT_TASK( uxCandidatePriority ) \
+		( ( uxCandidatePriority ) > taskCURRENT_PREEMPTION_LEVEL() )
+#else
+	#define taskCAN_PREEMPT_CURRENT_TASK( uxCandidatePriority ) \
+		( ( uxCandidatePriority ) > pxCurrentTCB->uxPriority )
+#endif
+
 /* Values that can be assigned to the ucNotifyState member of the TCB. */
 #define taskNOT_WAITING_NOTIFICATION	( ( uint8_t ) 0 )
 #define taskWAITING_NOTIFICATION		( ( uint8_t ) 1 )
@@ -260,6 +271,9 @@ typedef struct tskTaskControlBlock 			/* The old naming convention is used to pr
 	ListItem_t			xStateListItem;	/*< The list that the state list item of a task is reference from denotes the state of that task (Ready, Blocked, Suspended ). */
 	ListItem_t			xEventListItem;		/*< Used to reference a task from an event list. */
 	UBaseType_t			uxPriority;			/*< The priority of the task.  0 is the lowest priority. */
+	#if ( configUSE_PREEMPTION_THRESHOLDS == 1 )
+		UBaseType_t		uxPreemptionThreshold;	/*< Minimum priority required to preempt this task. */
+	#endif
 	StackType_t			*pxStack;			/*< Points to the start of the stack. */
 	char				pcTaskName[ configMAX_TASK_NAME_LEN ];/*< Descriptive name given to the task when created.  Facilitates debugging only. */ /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
 
@@ -931,6 +945,11 @@ UBaseType_t x;
 	}
 
 	pxNewTCB->uxPriority = uxPriority;
+	#if ( configUSE_PREEMPTION_THRESHOLDS == 1 )
+	{
+		pxNewTCB->uxPreemptionThreshold = uxPriority;
+	}
+	#endif
 	#if ( configUSE_MUTEXES == 1 )
 	{
 		pxNewTCB->uxBasePriority = uxPriority;
@@ -1141,7 +1160,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 	{
 		/* If the created task is of a higher priority than the current task
 		then it should run now. */
-		if( pxCurrentTCB->uxPriority < pxNewTCB->uxPriority )
+		if( taskCAN_PREEMPT_CURRENT_TASK( pxNewTCB->uxPriority ) )
 		{
 			taskYIELD_IF_USING_PREEMPTION();
 		}
@@ -1584,7 +1603,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 						/* The priority of a task other than the currently
 						running task is being raised.  Is the priority being
 						raised above that of the running task? */
-						if( uxNewPriority >= pxCurrentTCB->uxPriority )
+						if( taskCAN_PREEMPT_CURRENT_TASK( uxNewPriority ) )
 						{
 							xYieldRequired = pdTRUE;
 						}
@@ -1638,6 +1657,15 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 				#else
 				{
 					pxTCB->uxPriority = uxNewPriority;
+				}
+				#endif
+
+				#if ( configUSE_PREEMPTION_THRESHOLDS == 1 )
+				{
+					if( pxTCB->uxPreemptionThreshold < uxNewPriority )
+					{
+						pxTCB->uxPreemptionThreshold = uxNewPriority;
+					}
 				}
 				#endif
 
@@ -1697,6 +1725,69 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 	}
 
 #endif /* INCLUDE_vTaskPrioritySet */
+/*-----------------------------------------------------------*/
+
+#if ( configUSE_PREEMPTION_THRESHOLDS == 1 )
+
+	void vTaskPreemptionThresholdSet( TaskHandle_t xTask, UBaseType_t uxNewThreshold )
+	{
+	TCB_t *pxTCB;
+	UBaseType_t uxMinimumThreshold;
+
+		configASSERT( uxNewThreshold < configMAX_PRIORITIES );
+
+		if( uxNewThreshold >= ( UBaseType_t ) configMAX_PRIORITIES )
+		{
+			uxNewThreshold = ( UBaseType_t ) configMAX_PRIORITIES - ( UBaseType_t ) 1U;
+		}
+
+		taskENTER_CRITICAL();
+		{
+			pxTCB = prvGetTCBFromHandle( xTask );
+			#if ( configUSE_MUTEXES == 1 )
+			{
+				uxMinimumThreshold = pxTCB->uxBasePriority;
+			}
+			#else
+			{
+				uxMinimumThreshold = pxTCB->uxPriority;
+			}
+			#endif
+
+			if( uxNewThreshold < uxMinimumThreshold )
+			{
+				uxNewThreshold = uxMinimumThreshold;
+			}
+
+			pxTCB->uxPreemptionThreshold = uxNewThreshold;
+
+			/* Changing the running task's threshold may expose a ready task that
+			 * can now preempt it.  Re-evaluate only when such a task exists. */
+			if( ( pxTCB == pxCurrentTCB ) &&
+				( uxTopReadyPriority > taskCURRENT_PREEMPTION_LEVEL() ) )
+			{
+				taskYIELD_IF_USING_PREEMPTION();
+			}
+		}
+		taskEXIT_CRITICAL();
+	}
+
+	UBaseType_t uxTaskPreemptionThresholdGet( TaskHandle_t xTask )
+	{
+	TCB_t const *pxTCB;
+	UBaseType_t uxReturn;
+
+		taskENTER_CRITICAL();
+		{
+			pxTCB = prvGetTCBFromHandle( xTask );
+			uxReturn = pxTCB->uxPreemptionThreshold;
+		}
+		taskEXIT_CRITICAL();
+
+		return uxReturn;
+	}
+
+#endif /* configUSE_PREEMPTION_THRESHOLDS */
 /*-----------------------------------------------------------*/
 
 #if ( INCLUDE_vTaskSuspend == 1 )
@@ -1871,7 +1962,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 					prvAddTaskToReadyList( pxTCB );
 
 					/* A higher priority task may have just been resumed. */
-					if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
+					if( taskCAN_PREEMPT_CURRENT_TASK( pxTCB->uxPriority ) )
 					{
 						/* This yield may not cause the task just resumed to run,
 						but will leave the lists in the correct state for the
@@ -1939,7 +2030,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 				{
 					/* Ready lists can be accessed so move the task from the
 					suspended list to the ready list directly. */
-					if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
+					if( taskCAN_PREEMPT_CURRENT_TASK( pxTCB->uxPriority ) )
 					{
 						xYieldRequired = pdTRUE;
 					}
@@ -2224,7 +2315,7 @@ BaseType_t xAlreadyYielded = pdFALSE;
 
 					/* If the moved task has a priority higher than the current
 					task then a yield must be performed. */
-					if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
+					if( taskCAN_PREEMPT_CURRENT_TASK( pxTCB->uxPriority ) )
 					{
 						xYieldPending = pdTRUE;
 					}
@@ -2678,7 +2769,7 @@ BaseType_t xYieldRequired = pdFALSE;
 					/* Preemption is on, but a context switch should only be
 					performed if the unblocked task has a priority that is
 					equal to or higher than the currently executing task. */
-					if( pxTCB->uxPriority > pxCurrentTCB->uxPriority )
+					if( taskCAN_PREEMPT_CURRENT_TASK( pxTCB->uxPriority ) )
 					{
 						/* Pend the yield to be performed when the scheduler
 						is unsuspended. */
@@ -2801,7 +2892,7 @@ BaseType_t xSwitchRequired = pdFALSE;
 						only be performed if the unblocked task has a
 						priority that is equal to or higher than the
 						currently executing task. */
-						if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
+						if( taskCAN_PREEMPT_CURRENT_TASK( pxTCB->uxPriority ) )
 						{
 							xSwitchRequired = pdTRUE;
 						}
@@ -3183,7 +3274,7 @@ BaseType_t xReturn;
 		vListInsertEnd( &( xPendingReadyList ), &( pxUnblockedTCB->xEventListItem ) );
 	}
 
-	if( pxUnblockedTCB->uxPriority > pxCurrentTCB->uxPriority )
+	if( taskCAN_PREEMPT_CURRENT_TASK( pxUnblockedTCB->uxPriority ) )
 	{
 		/* Return true if the task removed from the event list has a higher
 		priority than the calling task.  This allows the calling task to know if
@@ -3240,7 +3331,7 @@ TCB_t *pxUnblockedTCB;
 	( void ) uxListRemove( &( pxUnblockedTCB->xStateListItem ) );
 	prvAddTaskToReadyList( pxUnblockedTCB );
 
-	if( pxUnblockedTCB->uxPriority > pxCurrentTCB->uxPriority )
+	if( taskCAN_PREEMPT_CURRENT_TASK( pxUnblockedTCB->uxPriority ) )
 	{
 		/* The unblocked task has a priority above that of the calling task, so
 		a context switch is required.  This function is called with the
@@ -4868,7 +4959,7 @@ TickType_t uxReturn;
 				}
 				#endif
 
-				if( pxTCB->uxPriority > pxCurrentTCB->uxPriority )
+				if( taskCAN_PREEMPT_CURRENT_TASK( pxTCB->uxPriority ) )
 				{
 					/* The notified task has a priority above the currently
 					executing task so a yield is required. */
@@ -4993,7 +5084,7 @@ TickType_t uxReturn;
 					vListInsertEnd( &( xPendingReadyList ), &( pxTCB->xEventListItem ) );
 				}
 
-				if( pxTCB->uxPriority > pxCurrentTCB->uxPriority )
+				if( taskCAN_PREEMPT_CURRENT_TASK( pxTCB->uxPriority ) )
 				{
 					/* The notified task has a priority above the currently
 					executing task so a yield is required. */
@@ -5081,7 +5172,7 @@ TickType_t uxReturn;
 					vListInsertEnd( &( xPendingReadyList ), &( pxTCB->xEventListItem ) );
 				}
 
-				if( pxTCB->uxPriority > pxCurrentTCB->uxPriority )
+				if( taskCAN_PREEMPT_CURRENT_TASK( pxTCB->uxPriority ) )
 				{
 					/* The notified task has a priority above the currently
 					executing task so a yield is required. */

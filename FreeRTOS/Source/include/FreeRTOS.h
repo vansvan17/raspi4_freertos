@@ -92,6 +92,14 @@ extern "C" {
 	#error Missing definition:  configUSE_PREEMPTION must be defined in FreeRTOSConfig.h as either 1 or 0.  See the Configuration section of the FreeRTOS API documentation for details.
 #endif
 
+#ifndef configUSE_PREEMPTION_THRESHOLDS
+	#define configUSE_PREEMPTION_THRESHOLDS 0
+#endif
+
+#if ( ( configUSE_PREEMPTION_THRESHOLDS == 1 ) && ( configUSE_PREEMPTION == 0 ) )
+	#error configUSE_PREEMPTION_THRESHOLDS requires configUSE_PREEMPTION to be set to 1.
+#endif
+
 #ifndef configUSE_IDLE_HOOK
 	#error Missing definition:  configUSE_IDLE_HOOK must be defined in FreeRTOSConfig.h as either 1 or 0.  See the Configuration section of the FreeRTOS API documentation for details.
 #endif
