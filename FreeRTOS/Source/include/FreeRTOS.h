@@ -540,6 +540,10 @@ hold explicit before calling the code. */
 	#define traceTASK_PRIORITY_SET( pxTask, uxNewPriority )
 #endif
 
+#ifndef traceTASK_PREEMPTION_THRESHOLD_SET
+	#define traceTASK_PREEMPTION_THRESHOLD_SET( pxTask, uxNewThreshold )
+#endif
+
 #ifndef traceTASK_SUSPEND
 	#define traceTASK_SUSPEND( pxTaskToSuspend )
 #endif
@@ -1125,6 +1129,9 @@ typedef struct xSTATIC_TCB
 	#endif
 	StaticListItem_t	xDummy3[ 2 ];
 	UBaseType_t			uxDummy5;
+	#if ( configUSE_PREEMPTION_THRESHOLDS == 1 )
+		UBaseType_t		uxDummyPreemptionThreshold;
+	#endif
 	void				*pxDummy6;
 	uint8_t				ucDummy7[ configMAX_TASK_NAME_LEN ];
 	#if ( ( portSTACK_GROWTH > 0 ) || ( configRECORD_STACK_HIGH_ADDRESS == 1 ) )

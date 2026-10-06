@@ -1759,6 +1759,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 				uxNewThreshold = uxMinimumThreshold;
 			}
 
+			traceTASK_PREEMPTION_THRESHOLD_SET( pxTCB, uxNewThreshold );
 			pxTCB->uxPreemptionThreshold = uxNewThreshold;
 
 			/* Changing the running task's threshold may expose a ready task that
