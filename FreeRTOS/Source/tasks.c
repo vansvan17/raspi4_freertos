@@ -70,9 +70,15 @@ functions but without including stdio.h here. */
 		  pxCurrentTCB->uxPreemptionThreshold : pxCurrentTCB->uxPriority )
 	#define taskCAN_PREEMPT_CURRENT_TASK( uxCandidatePriority ) \
 		( ( uxCandidatePriority ) > taskCURRENT_PREEMPTION_LEVEL() )
+	#define taskCAN_PREEMPT_OR_TIME_SLICE_CURRENT_TASK( uxCandidatePriority ) \
+		( ( pxCurrentTCB->uxPreemptionThreshold == pxCurrentTCB->uxPriority ) ? \
+		  ( ( uxCandidatePriority ) >= pxCurrentTCB->uxPriority ) : \
+		  ( ( uxCandidatePriority ) > taskCURRENT_PREEMPTION_LEVEL() ) )
 #else
 	#define taskCAN_PREEMPT_CURRENT_TASK( uxCandidatePriority ) \
 		( ( uxCandidatePriority ) > pxCurrentTCB->uxPriority )
+	#define taskCAN_PREEMPT_OR_TIME_SLICE_CURRENT_TASK( uxCandidatePriority ) \
+		( ( uxCandidatePriority ) >= pxCurrentTCB->uxPriority )
 #endif
 
 /* Values that can be assigned to the ucNotifyState member of the TCB. */
@@ -1963,7 +1969,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 					prvAddTaskToReadyList( pxTCB );
 
 					/* A higher priority task may have just been resumed. */
-					if( taskCAN_PREEMPT_CURRENT_TASK( pxTCB->uxPriority ) )
+					if( taskCAN_PREEMPT_OR_TIME_SLICE_CURRENT_TASK( pxTCB->uxPriority ) )
 					{
 						/* This yield may not cause the task just resumed to run,
 						but will leave the lists in the correct state for the
@@ -2031,7 +2037,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 				{
 					/* Ready lists can be accessed so move the task from the
 					suspended list to the ready list directly. */
-					if( taskCAN_PREEMPT_CURRENT_TASK( pxTCB->uxPriority ) )
+					if( taskCAN_PREEMPT_OR_TIME_SLICE_CURRENT_TASK( pxTCB->uxPriority ) )
 					{
 						xYieldRequired = pdTRUE;
 					}
@@ -2316,7 +2322,7 @@ BaseType_t xAlreadyYielded = pdFALSE;
 
 					/* If the moved task has a priority higher than the current
 					task then a yield must be performed. */
-					if( taskCAN_PREEMPT_CURRENT_TASK( pxTCB->uxPriority ) )
+					if( taskCAN_PREEMPT_OR_TIME_SLICE_CURRENT_TASK( pxTCB->uxPriority ) )
 					{
 						xYieldPending = pdTRUE;
 					}
@@ -2893,7 +2899,7 @@ BaseType_t xSwitchRequired = pdFALSE;
 						only be performed if the unblocked task has a
 						priority that is equal to or higher than the
 						currently executing task. */
-						if( taskCAN_PREEMPT_CURRENT_TASK( pxTCB->uxPriority ) )
+						if( taskCAN_PREEMPT_OR_TIME_SLICE_CURRENT_TASK( pxTCB->uxPriority ) )
 						{
 							xSwitchRequired = pdTRUE;
 						}
