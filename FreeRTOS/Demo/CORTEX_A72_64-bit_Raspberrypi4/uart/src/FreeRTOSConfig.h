@@ -51,6 +51,7 @@
 to exclude the API function. */
 #define INCLUDE_vTaskDelay						1
 #define INCLUDE_vTaskDelayUntil					1
+#define INCLUDE_vTaskPrioritySet				1
 
 #define INCLUDE_xSemaphoreGetMutexHolder		1
 

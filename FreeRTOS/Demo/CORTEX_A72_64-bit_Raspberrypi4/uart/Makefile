@@ -14,6 +14,20 @@ CFLAGS = -mcpu=cortex-a72 \
          -I$(INCLUDEPATH2) \
          -I$(INCLUDEPATH3) \
          -I$(INCLUDEPATH4) 
+
+CFLAGS += -DBENCHMARK_MODE=$(BENCHMARK_MODE)
+BENCHMARK_MODE ?= 2
+
+.PHONY: benchmark-baseline benchmark-priority benchmark-threshold
+
+benchmark-baseline:
+	$(MAKE) clean all BENCHMARK_MODE=0
+
+benchmark-priority:
+	$(MAKE) clean all BENCHMARK_MODE=1
+
+benchmark-threshold:
+	$(MAKE) clean all BENCHMARK_MODE=2
 ASMFLAGS = -mcpu=cortex-a72
 
 INCLUDEPATH1 ?= ./src
@@ -59,6 +73,7 @@ clean :
 	rm -rf ./build
 	rm -f *.elf
 	rm -f *.map
+	rm -f kernel8.img
 
 $(APP_NAME).elf : src/raspberrypi4.ld $(OBJS)
 	$(CROSS)gcc -Wl,-Map=$(APP_NAME).map -Wl,--build-id=none -std=gnu99 -T src/raspberrypi4.ld -o $@ -ffreestanding -nostdlib $(OBJS) -lgcc
