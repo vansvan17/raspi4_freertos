@@ -55,6 +55,10 @@ to exclude the API function. */
 
 #define INCLUDE_xSemaphoreGetMutexHolder		1
 
+/* Benchmark instrumentation. */
+extern volatile unsigned int benchmark_context_switches;
+#define traceTASK_SWITCHED_IN() benchmark_context_switches++
+
 void vConfigureTickInterrupt( void );
 #define configSETUP_TICK_INTERRUPT() vConfigureTickInterrupt()
 void vClearTickInterrupt( void );

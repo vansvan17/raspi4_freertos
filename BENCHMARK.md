@@ -10,8 +10,9 @@ Build from `FreeRTOS/Demo/CORTEX_A72_64-bit_Raspberrypi4/uart`:
 
 ```sh
 make benchmark-baseline CROSS=aarch64-elf-
-make benchmark-priority CROSS=aarch64-elf-
+make benchmark-ceiling CROSS=aarch64-elf-
 make benchmark-threshold CROSS=aarch64-elf-
+make benchmark-suspend CROSS=aarch64-elf-
 ```
 
 The modes are:
@@ -19,8 +20,9 @@ The modes are:
 | Mode | Policy |
 | --- | --- |
 | 0 | Normal fixed-priority preemption |
-| 1 | Raise the controller from priority 3 to 4 during computation, then restore it |
+| 1 | Explicit priority-ceiling style raise from priority 3 to 4, then restore it |
 | 2 | Keep priority 3 and apply preemption threshold 4 |
+| 3 | Suspend and resume the scheduler around controller computation |
 
 Each build produces `kernel8.img`. Keep the firmware, workload size, clock
 configuration, and observation interval identical when comparing modes.
@@ -45,11 +47,26 @@ The UART report contains hexadecimal values:
 - `ctrl_min_us`, `ctrl_max_us`, `ctrl_avg_us`: controller compute latency
 - `urgent_max_us`: maximum watchdog release lateness
 - `interference`: number of completed interference jobs
+- `switches`: cumulative scheduler context switches
 - `missed`: observed control or watchdog progress failures
 
 Collect at least 60 seconds per mode after a 10 second warm-up. Run modes in a
 rotating order to reduce thermal and clock bias. The first comparison should
-focus on maximum controller latency, urgent-task lateness, and missed deadlines.
+focus on maximum controller latency, urgent-task lateness, context switches,
+and missed deadlines. Scheduler suspension is expected to reduce preemption but
+may increase urgent-task lateness, which is precisely the tradeoff being tested.
+
+Save each UART capture separately, then generate a comparison table:
+
+```sh
+python3 tools/analyze_benchmark.py \
+  results/baseline.log results/ceiling.log \
+  results/threshold.log results/suspend.log \
+  --output results/summary.csv
+```
+
+The parser discards the first ten one-second reports by default and rejects
+incomplete logs or files containing mixed benchmark modes.
 
 ## Important semantic test
 

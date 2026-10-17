@@ -21,8 +21,9 @@
 /*
  * Build the same workload with one of these policies:
  *   0: ordinary fixed-priority preemption
- *   1: raise/restore the controller priority around the compute phase
+ *   1: explicit priority-ceiling raise/restore around the compute phase
  *   2: preemption threshold (controller priority 3, threshold 4)
+ *   3: suspend/resume the scheduler around the compute phase
  */
 #ifndef BENCHMARK_MODE
 #define BENCHMARK_MODE 2
@@ -55,6 +56,7 @@ static volatile uint32_t controller_runs;
 static volatile uint32_t actuator_runs;
 static volatile uint32_t missed_deadlines;
 static volatile uint32_t interferer_runs;
+volatile unsigned int benchmark_context_switches;
 static volatile uint64_t controller_latency_min = UINT64_MAX;
 static volatile uint64_t controller_latency_max;
 static volatile uint64_t controller_latency_sum;
@@ -151,6 +153,8 @@ static void controller_task(void *argument)
             uint64_t elapsed;
 #if (BENCHMARK_MODE == 1)
             vTaskPrioritySet(NULL, INTERFERER_PRIORITY);
+#elif (BENCHMARK_MODE == 3)
+            vTaskSuspendAll();
 #endif
             deterministic_work(CONTROLLER_WORK_ITERATIONS);
             int32_t error = SETPOINT - sample.measurement;
@@ -159,6 +163,8 @@ static void controller_task(void *argument)
             xQueueOverwrite(actuator_queue, &output);
 #if (BENCHMARK_MODE == 1)
             vTaskPrioritySet(NULL, CONTROLLER_PRIORITY);
+#elif (BENCHMARK_MODE == 3)
+            (void)xTaskResumeAll();
 #endif
             elapsed = counter_read() - started;
             if (elapsed < controller_latency_min) controller_latency_min = elapsed;
@@ -264,6 +270,8 @@ static void status_task(void *argument)
         uart_puthex(counter_to_us(urgent_lateness_max));
         uart_puts(" interference=0x");
         uart_puthex((uint64_t)interferer_runs);
+        uart_puts(" switches=0x");
+        uart_puthex((uint64_t)benchmark_context_switches);
         uart_puts("\r\n");
         vTaskDelayUntil(&wake, pdMS_TO_TICKS(STATUS_PERIOD_MS));
     }
@@ -282,7 +290,7 @@ void main(void)
 
     uart_puts("\r\nFreeRTOS Raspberry Pi 4 real-time control demo\r\n");
     uart_puts("sensor=100Hz, controller=event-driven, watchdog=10Hz\r\n");
-    uart_puts("benchmark modes: 0=baseline 1=priority-raise 2=threshold\r\n");
+    uart_puts("benchmark modes: 0=baseline 1=ceiling 2=threshold 3=suspend\r\n");
     uart_puts("selected mode=0x");
     uart_puthex((uint64_t)BENCHMARK_MODE);
     uart_puts("\r\n");

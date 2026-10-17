@@ -18,16 +18,22 @@ CFLAGS = -mcpu=cortex-a72 \
 CFLAGS += -DBENCHMARK_MODE=$(BENCHMARK_MODE)
 BENCHMARK_MODE ?= 2
 
-.PHONY: benchmark-baseline benchmark-priority benchmark-threshold
+.PHONY: benchmark-baseline benchmark-ceiling benchmark-priority benchmark-threshold benchmark-suspend
 
 benchmark-baseline:
 	$(MAKE) clean all BENCHMARK_MODE=0
 
-benchmark-priority:
+benchmark-ceiling:
 	$(MAKE) clean all BENCHMARK_MODE=1
+
+# Compatibility alias retained for earlier experiment notes.
+benchmark-priority: benchmark-ceiling
 
 benchmark-threshold:
 	$(MAKE) clean all BENCHMARK_MODE=2
+
+benchmark-suspend:
+	$(MAKE) clean all BENCHMARK_MODE=3
 ASMFLAGS = -mcpu=cortex-a72
 
 INCLUDEPATH1 ?= ./src
