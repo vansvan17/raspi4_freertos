@@ -16,9 +16,12 @@ CFLAGS = -mcpu=cortex-a72 \
          -I$(INCLUDEPATH4) 
 
 CFLAGS += -DBENCHMARK_MODE=$(BENCHMARK_MODE)
+CFLAGS += -DMULTICORE_SMOKE_TEST=$(MULTICORE_SMOKE_TEST)
 BENCHMARK_MODE ?= 2
+MULTICORE_SMOKE_TEST ?= 0
+MAIN_SOURCE ?= main
 
-.PHONY: benchmark-baseline benchmark-ceiling benchmark-priority benchmark-threshold benchmark-suspend
+.PHONY: benchmark-baseline benchmark-ceiling benchmark-priority benchmark-threshold benchmark-suspend threshold-semantics ready-queue-test multicore-smoke
 
 benchmark-baseline:
 	$(MAKE) clean all BENCHMARK_MODE=0
@@ -34,7 +37,17 @@ benchmark-threshold:
 
 benchmark-suspend:
 	$(MAKE) clean all BENCHMARK_MODE=3
-ASMFLAGS = -mcpu=cortex-a72
+
+threshold-semantics:
+	$(MAKE) clean all MAIN_SOURCE=threshold_semantics
+
+ready-queue-test:
+	$(MAKE) clean all MAIN_SOURCE=ready_queue_test
+
+multicore-smoke:
+	$(MAKE) clean all BENCHMARK_MODE=0 MULTICORE_SMOKE_TEST=1
+
+ASMFLAGS = -mcpu=cortex-a72 --defsym MULTICORE_SMOKE_TEST=$(MULTICORE_SMOKE_TEST)
 
 INCLUDEPATH1 ?= ./src
 INCLUDEPATH2 ?= ../mmu
@@ -46,7 +59,7 @@ OBJS = build/startup.o
 OBJS +=build/FreeRTOS_asm_vector.o
 OBJS +=build/FreeRTOS_tick_config.o
 OBJS +=build/interrupt.o
-OBJS +=build/main.o
+OBJS +=build/$(MAIN_SOURCE).o
 OBJS +=build/runtime.o
 OBJS +=build/uart.o
 

@@ -62,6 +62,28 @@ static volatile uint64_t controller_latency_max;
 static volatile uint64_t controller_latency_sum;
 static volatile uint64_t urgent_lateness_max;
 
+#if (MULTICORE_SMOKE_TEST == 1)
+volatile uint32_t secondary_core_release;
+volatile uint64_t secondary_core_heartbeats[4];
+
+void secondary_core_main(uint64_t core_id)
+{
+    for (;;)
+    {
+        secondary_core_heartbeats[core_id]++;
+        __asm volatile ("wfe");
+    }
+}
+#else
+volatile uint32_t secondary_core_release;
+
+void secondary_core_main(uint64_t core_id)
+{
+    (void)core_id;
+    for (;;) __asm volatile ("wfe");
+}
+#endif
+
 static inline uint64_t counter_read(void)
 {
     uint64_t value;
@@ -272,6 +294,15 @@ static void status_task(void *argument)
         uart_puthex((uint64_t)interferer_runs);
         uart_puts(" switches=0x");
         uart_puthex((uint64_t)benchmark_context_switches);
+#if (MULTICORE_SMOKE_TEST == 1)
+        uart_puts(" core1=0x");
+        uart_puthex(secondary_core_heartbeats[1]);
+        uart_puts(" core2=0x");
+        uart_puthex(secondary_core_heartbeats[2]);
+        uart_puts(" core3=0x");
+        uart_puthex(secondary_core_heartbeats[3]);
+        __asm volatile ("sev");
+#endif
         uart_puts("\r\n");
         vTaskDelayUntil(&wake, pdMS_TO_TICKS(STATUS_PERIOD_MS));
     }
@@ -284,6 +315,12 @@ void main(void)
     gic_init();
     led_init();
     uart_init();
+
+#if (MULTICORE_SMOKE_TEST == 1)
+    secondary_core_release = 1U;
+    __asm volatile ("dsb sy\n\tsev");
+    uart_puts("secondary-core smoke test enabled; FreeRTOS remains on core 0\r\n");
+#endif
 
     sensor_queue = xQueueCreate(1, sizeof(SensorSample));
     actuator_queue = xQueueCreate(1, sizeof(ControlCommand));

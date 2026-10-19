@@ -1,6 +1,6 @@
 # Raspberry Pi 4 scheduling benchmark
 
-This benchmark runs the same synthetic control workload under three scheduling
+This benchmark runs the same synthetic control workload under four scheduling
 policies. Its purpose is to measure the tradeoff discussed in the FreeRTOS
 community thread rather than assume that preemption thresholds are beneficial.
 
@@ -82,11 +82,73 @@ executing. A threshold is therefore not mutual exclusion and does not guarantee
 that B remains deferred until A finishes. Applications needing that guarantee
 must use synchronization or a real priority change.
 
+Build a deterministic version of this sequence with:
+
+```sh
+make threshold-semantics CROSS=aarch64-elf-
+```
+
+On the Pi, the UART must print `threshold_nested_preemption=PASS` followed by
+the trace values 1, 2, 3, 4, 5. This is a semantic check, not a performance
+result.
+
+## Ready-queue placement experiment
+
+The community also suggested examining whether a preempted task resumes before
+or after an already-ready task at the same priority. Build the experiment with:
+
+```sh
+make ready-queue-test CROSS=aarch64-elf-
+```
+
+The test makes one priority-3 task ready while another priority-3 task is
+running, then briefly preempts the running task with a priority-5 task. Its
+UART result is one of:
+
+- `READY_PEER_FIRST`: the already-ready peer runs before the preempted task.
+- `PREEMPTED_TASK_FIRST`: the interrupted task resumes first.
+- `UNEXPECTED`: the observed trace did not match either expected ordering.
+
+This experiment documents the current kernel behavior before any queue-policy
+extension is proposed. A policy change should not be implemented until a real
+workload shows that the alternative ordering improves a useful metric.
+
 ## Current multicore status
 
-This Raspberry Pi 4 port is currently single-core. `startup.S` boots core 0 and
-parks cores 1 through 3, and the bundled FreeRTOS kernel predates the current SMP
-kernel. The benchmark is valid only as a single-core experiment until secondary
-core startup, per-core interrupt setup, inter-processor interrupts, scheduler
-locking, and the current FreeRTOS SMP kernel are integrated and tested.
+The normal images remain single-core FreeRTOS builds. A separate diagnostic
+image now releases the three secondary Cortex-A72 cores:
+
+```sh
+make multicore-smoke CROSS=aarch64-elf-
+```
+
+Core 0 still owns FreeRTOS and all interrupts. Cores 1 through 3 run a small
+bare-metal heartbeat loop on private stacks. The one-second UART report adds
+`core1`, `core2`, and `core3`; all three counters must increase between reports.
+
+This proves secondary-core entry, private stacks, shared-memory visibility, and
+event wakeups. It does **not** prove FreeRTOS SMP or task affinity. Running
+FreeRTOS tasks on multiple cores still requires a current SMP-capable kernel,
+per-core exception state, per-core timer or tick handling, inter-processor
+interrupts, scheduler locks, and cache-coherent atomic primitives. No multicore
+scheduling result should be claimed until those pieces are integrated and
+tested on hardware.
+
+## Hardware run order
+
+Use the same boot media and UART adapter for every image. Save the complete UART
+capture for each step.
+
+1. `threshold-semantics`
+2. `ready-queue-test`
+3. `multicore-smoke`
+4. baseline benchmark for at least 70 seconds
+5. priority raise and restore for at least 70 seconds
+6. threshold for at least 70 seconds
+7. scheduler suspension for at least 70 seconds
+
+The 70-second runs provide ten warm-up reports and at least sixty retained
+reports. Rotate the order of the four performance modes on later repetitions.
+Do not publish or report measurements until each mode has at least five runs
+and the raw captures are archived.
 

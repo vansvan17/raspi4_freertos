@@ -4,10 +4,16 @@
 .globl _boot
  
 _boot:
-    // Boot directly on core #0. Park any secondary cores.
+    // Boot directly on core #0. A diagnostic build can release cores 1-3.
     mrs     x1, mpidr_el1
     and     x1, x1, #3
-    cbnz    x1, park_core
+    cbz     x1, start_el2
+
+    .if MULTICORE_SMOKE_TEST
+    b       secondary_wait
+    .else
+    b       park_core
+    .endif
 
 start_el2:
     // enable AArch64 in EL1.
@@ -44,6 +50,25 @@ start_el1:
 
 2:  bl      main
     ret
+
+secondary_wait:
+    // Give every secondary core a private 16 KiB stack.
+    adrp    x2, stack_top
+    mov     x3, #0x4000
+    mul     x3, x1, x3
+    sub     sp, x2, x3
+
+    // Core 0 clears BSS before publishing the release flag.
+    ldr     x2, =secondary_core_release
+3:  ldr     w3, [x2]
+    cbnz    w3, secondary_start
+    wfe
+    b       3b
+
+secondary_start:
+    mov     x0, x1
+    bl      secondary_core_main
+    b       park_core
 
 park_core:
     wfe
