@@ -1,0 +1,9 @@
+installed /tmp/freertos-kernel8.img as /boot/firmware/freertos8.img
+armed 0x60000000, 0x30000000
+waiting for the Pi to go down...
+waiting for Linux to come back (up to 1500 s)...
+0x60000000: PASS  linux->image nonce kept, image->linux 262128/262128 words intact, checksum ok
+0x30000000: PASS  linux->image nonce kept, image->linux 262128/262128 words intact, checksum ok
+ram_persistence=PASS
+
+[exited with code 0]

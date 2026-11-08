@@ -1,0 +1,7 @@
+installed /tmp/freertos-kernel8.img as /boot/firmware/freertos/kernel8.img
+armed 0x60000000, 0x30000000
+waiting for the Pi to go down...
+waiting for Linux to come back (up to 1500 s)...
+0x60000000: FAIL, no FreeRTOS marker (image did not run, or RAM was cleared)
+0x30000000: FAIL, no FreeRTOS marker (image did not run, or RAM was cleared)
+ram_persistence=FAIL

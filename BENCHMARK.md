@@ -152,3 +152,41 @@ reports. Rotate the order of the four performance modes on later repetitions.
 Do not publish or report measurements until each mode has at least five runs
 and the raw captures are archived.
 
+
+## Collecting results without a UART adapter
+
+The Pi's normal Linux install can collect the results instead of a serial
+adapter. Linux stays the default boot. Each image runs once through the
+firmware's one-shot `tryboot`, copies everything it prints into a reserved
+1 MiB block of RAM at `0x60000000`, and resets back to Linux through the
+watchdog. Linux then reads the block over SSH. Nothing is written to the boot
+filesystem while FreeRTOS runs.
+
+Build the RAM-log variants (they also still print on the UART):
+
+```sh
+make benchmark-threshold CROSS=aarch64-elf- RAM_LOG=1   # 80 reports, then reset
+make ram-persist-test CROSS=aarch64-elf-
+```
+
+`RAM_LOG_REPORTS=<n>` changes the run length. The reporter also kicks a
+15-second hardware watchdog, so a hang returns the board to Linux and the log
+is reported as incomplete.
+
+From the Mac, with the Pi reachable over SSH (`PI=pi@<address>` to override):
+
+```sh
+tools/pi_run.sh setup     # once: reserve the RAM (dtoverlay=freertos-ramlog), reboot
+tools/pi_run.sh persist   # must print ram_persistence=PASS before trusting logs
+tools/pi_run.sh log FreeRTOS/Demo/CORTEX_A72_64-bit_Raspberrypi4/uart/ramlog-images/benchmark-threshold-ramlog.img results/threshold-1.log
+```
+
+The saved log has the same lines as a UART capture, so
+`tools/analyze_benchmark.py` reads it unchanged. The persistence test checks
+both directions: a nonce Linux writes before rebooting must reach the image,
+and a 1 MiB pattern the image writes must reach Linux intact. If a power cycle
+is ever needed, the board simply boots Linux.
+
+Setup adds one `dtoverlay=freertos-ramlog` line to `config.txt` and installs
+`freertos/kernel8.img` and `tryboot.txt` on the boot partition. Removing that
+line undoes the reservation.

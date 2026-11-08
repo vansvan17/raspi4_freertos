@@ -5,6 +5,7 @@
 #include "task.h"
 
 #include "board.h"
+#include "ramlog.h"
 #include "uart.h"
 
 #define GPIO_BASE_ADDR 0xFE200000UL
@@ -27,6 +28,13 @@
  */
 #ifndef BENCHMARK_MODE
 #define BENCHMARK_MODE 2
+#endif
+
+#ifndef RAM_LOG
+#define RAM_LOG 0
+#endif
+#ifndef RAM_LOG_REPORTS
+#define RAM_LOG_REPORTS 80
 #endif
 
 #define CONTROLLER_PRIORITY 3U
@@ -63,8 +71,28 @@ static volatile uint64_t controller_latency_sum;
 static volatile uint64_t urgent_lateness_max;
 
 #if (MULTICORE_SMOKE_TEST == 1)
+/* Pi 4 firmware parks cores 1-3 polling these addresses (cpu-release-addr). */
+#define SPIN_TABLE_CORE1 0xE0UL
+
+extern char _boot[];
 volatile uint32_t secondary_core_release;
 volatile uint64_t secondary_core_heartbeats[4];
+
+/* The MMU is off, so these stores reach DRAM without cache maintenance. */
+static void release_secondaries(void)
+{
+    uintptr_t table;
+    uint32_t core;
+
+    /* Hide the low constant address from GCC's array-bounds checks. */
+    __asm volatile ("" : "=r" (table) : "0" (SPIN_TABLE_CORE1));
+    secondary_core_release = 1U;
+    for (core = 1; core < 4U; core++)
+    {
+        *(volatile uint64_t *)(table + (core - 1U) * 8U) = (uint64_t)(uintptr_t)_boot;
+    }
+    __asm volatile ("dsb sy\n\tsev" ::: "memory");
+}
 
 void secondary_core_main(uint64_t core_id)
 {
@@ -268,6 +296,9 @@ static void watchdog_task(void *argument)
 static void status_task(void *argument)
 {
     TickType_t wake = xTaskGetTickCount();
+#if (RAM_LOG == 1)
+    uint32_t reports = 0;
+#endif
     (void)argument;
 
     for (;;)
@@ -304,6 +335,16 @@ static void status_task(void *argument)
         __asm volatile ("sev");
 #endif
         uart_puts("\r\n");
+#if (RAM_LOG == 1)
+        ramlog_note_report();
+        pm_watchdog_start(15U);
+        if (++reports >= RAM_LOG_REPORTS)
+        {
+            uart_puts("ramlog complete\r\n");
+            ramlog_finish();
+            pm_watchdog_reset_now();
+        }
+#endif
         vTaskDelayUntil(&wake, pdMS_TO_TICKS(STATUS_PERIOD_MS));
     }
 }
@@ -312,13 +353,17 @@ void main(void)
 {
     TaskHandle_t controller_handle = NULL;
 
+#if (RAM_LOG == 1)
+    /* A hang or a starved reporter still returns the board to Linux. */
+    pm_watchdog_start(15U);
+    ramlog_begin(RAMLOG_KIND_LOG);
+#endif
     gic_init();
     led_init();
     uart_init();
 
 #if (MULTICORE_SMOKE_TEST == 1)
-    secondary_core_release = 1U;
-    __asm volatile ("dsb sy\n\tsev");
+    release_secondaries();
     uart_puts("secondary-core smoke test enabled; FreeRTOS remains on core 0\r\n");
 #endif
 

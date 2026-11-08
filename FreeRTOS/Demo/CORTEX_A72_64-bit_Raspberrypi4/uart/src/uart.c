@@ -6,6 +6,7 @@
 #include "interrupt.h"
 #include "semphr.h"
 #include "uart.h"
+#include "ramlog.h"
 
 /* PL011 UART on Raspberry pi 4B */
 #define UART_BASE  (0xFE201400U) /* UART2 */
@@ -37,6 +38,7 @@ void uart_putchar(uint8_t c)
     while ( UART_FR & (0x20) ) { }
     UART_DR = c;
     asm volatile ("isb");
+    ramlog_putc(c);
     xSemaphoreGive(uartctl->tx_mux);
 }
 /*-----------------------------------------------------------*/
@@ -48,6 +50,7 @@ void uart_putchar_isr(uint8_t c)
     while ( (UART_FR & 0x20) ) { }
     UART_DR = c;
     asm volatile ("isb");
+    ramlog_putc(c);
     xSemaphoreGiveFromISR(uartctl->tx_mux, NULL);
 }
 /*-----------------------------------------------------------*/

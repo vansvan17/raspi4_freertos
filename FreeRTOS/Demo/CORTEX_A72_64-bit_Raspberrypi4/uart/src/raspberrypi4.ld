@@ -1,12 +1,17 @@
 ENTRY(_boot)
 
-CODE_BASE   = 0x00080000;
+/* The Pi 4 firmware loads a kernel with an arm64 Image header at 0x200000 and
+ * ignores kernel_address=0x80000 (measured 9 Nov 2026 with a probe that
+ * recorded its entry PC). Everything up to PT_BASE + PT_SIZE stays under
+ * 10 MiB, which the interference image maps as its image region. */
+CODE_BASE   = 0x00200000;
 CODE_SIZE   = 0x00200000;
 DATA_BASE   = CODE_BASE + CODE_SIZE;
 DATA_SIZE   = 0x00400000;
 STACK_TOP   = DATA_BASE + DATA_SIZE; /* STACK in the upper end of DATA */
 PT_BASE     = DATA_BASE + DATA_SIZE;
 PT_SIZE     = 0x00200000;
+__image_size = PT_BASE + PT_SIZE - CODE_BASE; /* header image_size, incl. BSS/stack/PT */
 
 MEMORY {
     CODE  (rx) : ORIGIN = CODE_BASE, LENGTH = CODE_SIZE
@@ -16,13 +21,15 @@ MEMORY {
  
 SECTIONS
 {
-    /* Raspberry Pi firmware loads a 64-bit kernel at 0x80000. */
+    /* arm64 Image header first (see startup.S), then the 2 KiB-aligned vectors. */
     .text :
     {
         __start = .;
         __text_start = .;
+        KEEP(*(.text.head))
+        KEEP(*(.text.boot))  /* entry code straight after the header, as in the
+                                minimal probe that boots; see startup.S */
         KEEP(*(.vectors))
-        KEEP(*(.text.boot))
         *(.text)
         __text_end = .;
     } > CODE
@@ -64,7 +71,9 @@ SECTIONS
     } > DATA
     stack_top = STACK_TOP;
 
-    .pt :
+    /* NOLOAD: set_pt() fills every entry, so the zeros need not be in
+     * kernel8.img (they would make it about 6 MiB). */
+    .pt (NOLOAD) :
     {
         . = ALIGN(4096); /* align to page size */
         *(.pt)
